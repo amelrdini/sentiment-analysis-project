@@ -1,0 +1,19 @@
+# Data besar - bagikan via Google Drive, tidak di-commit
+Dataset/
+data/raw/
+data/interim/
+data/processed/
+
+# Checkpoint model hasil fine-tuning
+models/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

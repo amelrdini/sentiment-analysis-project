@@ -1,0 +1,27 @@
+# Konfigurasi proyek Indonesian Hate Speech Analyzer
+
+paths:
+  dataset: "Dataset"
+  data_raw: "data/raw"
+  data_interim: "data/interim"
+  data_processed: "data/processed"
+  figures: "reports/figures"
+
+seed: 42
+
+labels:
+  - toxicity
+  - profanity_obscenity
+  - threat_incitement_to_violence
+  - insults
+  - identity_attack
+  - sexually_explicit
+
+split:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+
+aggregation:
+  metode: majority_safety_first
+  aturan: "v/n >= 0.5, tie di-resolve ke positif untuk semua 6 label"
