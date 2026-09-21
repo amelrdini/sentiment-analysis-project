@@ -94,6 +94,9 @@ def bersihkan(teks, kamus):
     teks = EMOJI_RE.sub(' ', teks)
     teks = REPEAT_RE.sub('\\1\\1', teks)
     teks = teks.lower()
+    # pengecualian khusus: ht di medsos berarti hashtag, bukan hati
+    # (tanpa ini, kamus memetakan ht -> hati dan merusak konteks)
+    teks = re.sub(r'\bht\b', 'hashtag', teks)
 
     n_ganti = 0
     hasil_kata = []

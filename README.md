@@ -83,5 +83,7 @@ melewati preprocessing:
 - **Dipakai untuk tokenization & training**:
   `data/processed/train_preprocessed.jsonl`, `val_preprocessed.jsonl`, `test_preprocessed.jsonl`
   (kolom `text_clean` yang di-pakai tokenizer BERT, plus kolom `fitur` untuk
-  severity scoring atau error analysis nanti).
+  severity scoring atau error analysis nanti, plus kolom biner
+  `needs_manual_review` yang menandai teks dengan penggantian slang >= 50 kata
+  sebagai target audit manual di bab error analysis).
 - File besar dibagikan via Google Drive, sudah di-exclude dari git
