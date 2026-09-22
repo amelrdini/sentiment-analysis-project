@@ -1,67 +1,88 @@
 %% Flowchart Alur Penelitian - Deteksi Hate Speech Indonesia (IndoToxic2024)
 %% Kelompok 5 - Workshop Proyek Sistem Cerdas
-%% Semua angka diambil dari artefak aktual:
+%% Sumber data & angka aktual:
+%%   Dataset/indotoxic2024_annotated_data-3.jsonl,
 %%   data/interim/splits_summary.json, reports/01_dataset_identification.md,
 %%   reports/06_preprocessing_decisions.md, notebooks/step3_pipeline_final.ipynb,
-%%   src/preprocessing.py, demo/cek_angka_flag.py (output terverifikasi 2026-09)
-%% Tahap 7-9 masih DIRENCANAKAN (belum ada training/evaluasi yang dieksekusi).
+%%   src/preprocessing.py, demo/cek_angka_flag.py, config.yaml, requirements.txt
+%% Status: Tahap 1-6 SELESAI & TERVERIFIKASI; Tahap 7-9 DIRENCANAKAN.
 
 flowchart TD
 
-    subgraph S1["TAHAP 1 - DATA MENTAH"]
-        A["Dataset/indotoxic2024_annotated_data-3.jsonl<br/>43.692 baris anotasi (34,6 MB, JSONL)<br/>19 anotator (ID 1-21, tanpa 14 &amp; 17)<br/>28.449 teks unik (text_id)<br/>1 baris = 1 anotasi, bukan 1 teks<br/>6 label biner + topik + demografi anotator"]
-        A0["Dataset/indotoxic2024_annotator_data.jsonl<br/>19 baris profil demografi anotator"]
+    subgraph S1["TAHAP 1 - DATASET MENTAH (SELESAI)"]
+        A["indotoxic2024_annotated_data-3.jsonl<br/>43.692 baris anotasi (34,6 MB, JSONL)<br/>28.449 teks unik (text_id)<br/>1 baris = 1 anotasi, bukan 1 teks<br/>6 label biner: toxicity, profanity_obscenity,<br/>threat_incitement_to_violence, insults,<br/>identity_attack, sexually_explicit"]
+        A0["indotoxic2024_annotator_data.jsonl<br/>19 anotator (ID 1-21, tanpa 14 &amp; 17)<br/>12 perempuan, 7 laki-laki (usia 20-50)<br/>11 etnis, 8 latar belakang agama"]
     end
 
-    subgraph S2["TAHAP 2 - PEMBERSIHAN (notebook step 3)"]
-        B["Kanonikalisasi konten per text_id<br/>(modus konten, strip)"]
+    subgraph S2["TAHAP 2 - PEMBERSIHAN DATA (SELESAI)"]
+        B["Kanonikalisasi konten per text_id<br/>(modus konten, strip spasi)"]
         B1["171 baris konten minoritas dibuang"]
         B2["1 unit teks kosong dibuang (text_id 2-1256)"]
-        B3["1 unit teks kosong dipulihkan<br/>(text_id 103-150)"]
-        C["43.520 baris valid<br/>28.448 teks unik<br/>topic '1' dinormalisasi ke UNKNOWN<br/>(3.903 baris UNKNOWN)"]
+        B3["1 unit teks kosong dipulihkan (text_id 103-150)"]
+        C["Hasil Pembersihan:<br/>43.520 baris anotasi valid<br/>28.448 teks unik<br/>Normalisasi topik '1' -&gt; UNKNOWN<br/>(3.903 baris topic UNKNOWN)"]
     end
 
-    subgraph S3["TAHAP 3 - AGREGASI LABEL"]
-        D["majority_safety_first per text_id<br/>label = 1 jika v/n &gt;= 0,5<br/>(tie genap di-resolve ke POSITIF,<br/>semua 6 label)"]
-        D1["Flag tie_break_applied_label<br/>disimpan per label (ablasi nanti)"]
-        E["28.448 unit teks berlabel final<br/>toxicity 4.414 positif (15,5%) | tie 1.996<br/>profanity 904 (3,2%) | tie 519<br/>threat 1.068 (3,8%) | tie 945<br/>insults 2.260 (7,9%) | tie 1.376<br/>identity_attack 2.186 (7,7%) | tie 1.242<br/>sexually_explicit 151 (0,5%) | tie 95"]
+    subgraph S3["TAHAP 3 - AGREGASI LABEL (SELESAI)"]
+        D["Metode: majority_safety_first<br/>Formula: label = 1 jika v/n &gt;= 0,5<br/>Tie genap (v = n/2) di-resolve ke POSITIF<br/>berlaku konsisten untuk SEMUA 6 label"]
+        D1["Metadata disimpan:<br/>agreement_label (skor konsensus v/n)<br/>tie_break_applied_label (flag boolean)"]
+        E["28.448 unit teks berlabel final:<br/>- toxicity: 4.414 positif (15,5%) | tie: 1.996<br/>- profanity_obscenity: 904 (3,2%) | tie: 519<br/>- threat_incitement: 1.068 (3,8%) | tie: 945<br/>- insults: 2.260 (7,9%) | tie: 1.376<br/>- identity_attack: 2.186 (7,7%) | tie: 1.242<br/>- sexually_explicit: 151 (0,5%) | tie: 95"]
     end
 
-    subgraph S4["TAHAP 4 - GROUPING & SPLIT"]
-        F["group_id dari konten dinormalisasi<br/>(lowercase, whitespace &amp; kutip dibersihkan)<br/>26.157 grup unik<br/>4.425 unit di grup multi-anggota (15,6%)"]
-        G["Iterative Stratification scikit-multilearn<br/>order=1, rasio 70:15:15, seed 42<br/>stratifikasi di level grup (label OR)"]
-        H["TRAIN 19.986 unit / 18.309 grup<br/>VAL 4.229 unit / 3.924 grup<br/>TEST 4.233 unit / 3.924 grup<br/>Leakage check: 0 grup lintas split"]
+    subgraph S4["TAHAP 4 - GROUPING &amp; SPLIT ZERO-LEAKAGE (SELESAI)"]
+        F["Grouping Konten Dekat/Identik:<br/>Kunci grup = lowercase + strip tanda baca &amp; spasi<br/>Hasil: 26.157 grup unik<br/>4.425 unit berada di grup multi-anggota (15,6%)"]
+        G["Group-aware Iterative Stratification:<br/>scikit-multilearn 0.2.0 (order=1, seed 42)<br/>Stratifikasi di level grup (vektor label OR grup)<br/>Rasio target: 70% train : 15% val : 15% test"]
+        H["Hasil Split Aktual:<br/>- TRAIN: 19.986 teks (18.309 grup)<br/>- VAL: 4.229 teks (3.924 grup)<br/>- TEST: 4.233 teks (3.924 grup)<br/>Audit Independen: 0 grup lintas split (Zero Leakage)"]
     end
 
-    subgraph S5["TAHAP 5 - EDA (notebook step 4, 5, 6)"]
-        I["23 figur di reports/figures/<br/>01-13: EDA konten (distribusi 6 label,<br/>co-occurrence, panjang teks, wordcloud)<br/>14-16: toxic vs non-toxic, agreement,<br/>bias demografi 19 anotator<br/>17-21: EDA pasca-preprocessing<br/>(fitur per label, kosakata, slang)"]
+    subgraph S5["TAHAP 5 - EDA KONTEN &amp; ANOTATOR (SELESAI)"]
+        I["23 Figur Analisis di reports/figures/:<br/>- EDA Konten: ketimpangan kelas ~25:1, p95 panjang=139 kata<br/>- EDA Anotator: Kappa 0,369, Krippendorff alpha threat = -0,131<br/>- Temuan Preprocessing: kapital (43% vs 36%), repetisi (20% vs 14%)"]
     end
 
-    subgraph S6["TAHAP 6 - PREPROCESSING TEKS (src/preprocessing.py)"]
-        J["Input: data/processed/{split}.jsonl<br/>10 fitur struktural dihitung dari teks asli:<br/>caps_ratio, n_allcaps_word, n_elongated,<br/>n_url, n_mention, n_hashtag, n_emoji,<br/>n_word, n_char, n_slang_replaced"]
-        K["text_clean:<br/>URL &amp; mention dihapus (jumlah dicatat)<br/>hashtag: simbol # dibuang, kata disimpan<br/>emoji dihitung lalu dihapus<br/>huruf berulang 3+ dikompres ke 2<br/>lowercase<br/>ht -&gt; hashtag (pengecualian kamus)"]
-        L["Normalisasi slang word-by-word<br/>kamus new_kamusalay.csv (15.166 entri)<br/>(Ibrohim &amp; Budi 2019, W19-3506)"]
-        M["Output: {split}_preprocessed.jsonl<br/>kolom text (asli) + text_clean + fitur<br/>needs_manual_review: 13 teks<br/>(n_slang_replaced &gt;= 50:<br/>train 5, val 4, test 4)<br/>TANPA stemming &amp; stopword removal"]
+    subgraph S6["TAHAP 6 - PREPROCESSING TEKS (SELESAI)"]
+        J["Input: data/processed/{split}.jsonl<br/>Ekstraksi 10 Fitur Struktural dari teks asli:<br/>caps_ratio, n_allcaps_word, n_elongated, n_url,<br/>n_mention, n_hashtag, n_emoji, n_word, n_char, n_slang_replaced"]
+        K["Pembersihan text_clean:<br/>1. URL &amp; mention @user dihapus<br/>2. Simbol # dibuang, kata hashtag disimpan<br/>3. Emoji dihitung lalu dihapus<br/>4. Kompresi huruf berulang 3+ -&gt; 2 (mis. anjirrr -&gt; anjirr)<br/>5. Lowercase konsisten tokenizer<br/>6. Pengecualian khusus: ht -&gt; hashtag (bukan 'hati')"]
+        L["Normalisasi Slang Word-by-Word:<br/>Kamus new_kamusalay.csv (15.166 entri bersih)<br/>(Ibrohim &amp; Budi 2019, ACL ALW3 W19-3506)<br/>Kata 'kaya' dipertahankan (ambiguitas semantik)"]
+        M["Output: data/processed/{split}_preprocessed.jsonl<br/>Kolom text_clean (siap tokenizer) + fitur struktural<br/>Flag needs_manual_review: 13 teks (n_slang &gt;= 50)<br/>(train: 5, val: 4, test: 4)<br/>CATATAN: TANPA stemming &amp; TANPA stopword removal"]
     end
 
-    subgraph S7["TAHAP 7 - FINE-TUNING (DIRENCANAKAN)"]
-        N["model A: indobenchmark/indobert-base-p1<br/>WordPiece 50.000, uncased, ~124 jt param"]
-        N2["model B: indolem/indobertweet-base-uncased<br/>WordPiece 31.923, ~124 jt param"]
-        O["Protokol identik kedua model:<br/>input text_clean, max_length 128<br/>2 task paralel:<br/>biner toxicity (head 2 unit)<br/>multi-label 5 label (head 5 sigmoid)<br/>BCEWithLogitsLoss (multi-label)<br/>AdamW lr 2e-5, batch 32, maks 4 epoch<br/>early stopping val macro-F1, seed 42"]
-        O1["Paralel 2 task:<br/>Task biner (toxicity, 2 kelas)<br/>Task multi-label (5 label)<br/>checkpoint: models/indobert/ &amp;<br/>models/indobertweet/"]
+    subgraph S7["TAHAP 7 - TOKENISASI (DIRENCANAKAN)"]
+        T1["Tokenizer IndoBERT:<br/>indobenchmark/indobert-base-p1<br/>WordPiece Vocab: 50.000 (uncased)<br/>max_length = 128 (padding &amp; truncation)"]
+        T2["Tokenizer IndoBERTweet:<br/>indolem/indobertweet-base-uncased<br/>WordPiece Vocab: 31.923 (uncased, medsos)<br/>max_length = 128 (padding &amp; truncation)"]
     end
 
-    subgraph S8["TAHAP 8 - EVALUASI (DIRENCANAKAN)"]
-        P["Test set hold-out: 4.233 teks<br/>classification_report sklearn per label<br/>+ macro/micro/weighted F1<br/>Hamming loss, subset accuracy<br/>ROC-AUC &amp; PR-AUC per label<br/>confusion matrix per label<br/>(multilabel_confusion_matrix)<br/>bootstrap 1.000x CI 95% + McNemar"]
+    subgraph S8["TAHAP 8 - FINE-TUNING &amp; PENANGANAN IMBALANCE (DIRENCANAKAN)"]
+        direction TB
+        M1["Model A: IndoBERT-base-p1<br/>General-domain (220M kata Indo4B)<br/>12-layer, 768-hidden, ~124 jt param"]
+        M2["Model B: IndoBERTweet-base<br/>Domain-adaptive (286M tweet Indonesia)<br/>12-layer, 768-hidden, ~124 jt param"]
+
+        subgraph S8_TASKS["2 Task Eksperimen Paralel"]
+            TASK_BIN["Task Biner:<br/>Toxicity (2 kelas)<br/>Classification Head: Dense 2 unit (CE/BCE)"]
+            TASK_MUL["Task Multi-label:<br/>5 Label: profanity, threat, insults, identity_attack, sexually_explicit<br/>Classification Head: Dense 5 unit Sigmoid (BCEWithLogitsLoss)"]
+        end
+
+        subgraph S8_IMB["3 Strategi Penanganan Imbalance (Wajib Kontrak)"]
+            IMB1["1. Baseline:<br/>Loss standar tanpa pembobotan"]
+            IMB2["2. Class-Weight / Focal Loss:<br/>pos_weight invers rasio kelas / Focal Loss gamma=2.0"]
+            IMB3["3. Data Augmentation:<br/>Augmentasi kontekstual terarah pada kelas minoritas"]
+        end
+
+        TRAIN_CFG["Hyperparameter Rencana:<br/>Optimizer: AdamW (lr 2e-5, weight decay 0.01)<br/>Batch size: 32 | Max epoch: 4 | Early stopping: Val Macro-F1 (patience 2)<br/>Seed: 42 | 12 Kombinasi Run (2 Model x 2 Task x 3 Strategi)"]
     end
 
-    subgraph S9["TAHAP 9 - ANALISIS & DEPLOY (DIRENCANAKAN)"]
-        Q["Error analysis per label<br/>13 teks flag needs_manual_review<br/>model terbaik (macro-F1 test) dipilih"]
-        R["Prototype app/ Streamlit<br/>inference teks bebas"]
+    subgraph S9["TAHAP 9 - EVALUASI MODEL (DIRENCANAKAN)"]
+        EV1["Hold-out Test Set (4.233 teks, zero group leakage)<br/>Dihitung via scikit-learn 1.4.2 (sklearn.metrics)"]
+        EV2["Metrik Utama &amp; Tambahan:<br/>- Macro-F1 (Metrik Utama Pemilihan Model)<br/>- Precision, Recall, F1-score per label<br/>- Confusion Matrix: multilabel_confusion_matrix (5 matriks 2x2 one-vs-rest)<br/>- Hamming Loss &amp; Subset Accuracy (Exact Match)<br/>- PR-AUC (Average Precision) &amp; ROC-AUC per label"]
+        EV3["Uji Signifikansi Statistik:<br/>- Non-parametric Bootstrap Resampling 1.000x (95% CI Macro-F1)<br/>- McNemar Test per label antara model &amp; strategi"]
     end
 
+    subgraph S10["TAHAP 10 - ERROR ANALYSIS &amp; PROTOTYPE STREAMLIT (DIRENCANAKAN)"]
+        EA["Error Analysis &amp; Audit Kualitas:<br/>- Audit 13 teks needs_manual_review<br/>- Analisis error label langka (sexually_explicit &amp; threat)<br/>- Analisis korelasi error thd agreement annotator rendah"]
+        APP["Prototype Streamlit (app/) - 4 Komponen Wajib Kontrak:<br/>1. Prediction (Biner toxicity &amp; 5 Multi-label)<br/>2. Confidence Score (Probabilitas Sigmoid)<br/>3. Severity &amp; Target Group (Tingkat keparahan + target)<br/>4. Explanation (Highlight kata via Attention Mechanism)"]
+    end
+
+    %% Hubungan alur
     A --> B
-    A0 -.profil anotator untuk EDA.-> I
+    A0 -.profil anotator.-> I
     B --> B1
     B --> B2
     B --> B3
@@ -75,25 +96,37 @@ flowchart TD
     F --> G
     G --> H
     H --> I
+    H --> J
     I --> J
     J --> K
     K --> L
     L --> M
-    M --> N
-    M --> N2
-    N --> O
-    N2 --> O
-    O --> O1
-    O1 --> P
-    P --> Q
-    Q --> R
+    M --> T1
+    M --> T2
+    T1 --> M1
+    T2 --> M2
+    M1 --> S8_TASKS
+    M2 --> S8_TASKS
+    S8_TASKS --> S8_IMB
+    S8_IMB --> TRAIN_CFG
+    TRAIN_CFG --> EV1
+    EV1 --> EV2
+    EV2 --> EV3
+    EV3 --> EA
+    EA --> APP
 
-    style S1 fill:#FDEDEC,stroke:#C0392B
-    style S2 fill:#FDF2E9,stroke:#E67E22
-    style S3 fill:#FDF2E9,stroke:#E67E22
-    style S4 fill:#EAFAF1,stroke:#1E8449
-    style S5 fill:#F4ECF7,stroke:#6C3483
-    style S6 fill:#EBF5FB,stroke:#2471A3
-    style S7 fill:#EBF5FB,stroke:#2471A3,stroke-dasharray: 5 5
-    style S8 fill:#F2F3F4,stroke:#5D6D7E,stroke-dasharray: 5 5
-    style S9 fill:#FEF9E7,stroke:#B7950B,stroke-dasharray: 5 5
+    %% Styling
+    style S1 fill:#FDEDEC,stroke:#C0392B,stroke-width:2px
+    style S2 fill:#FDF2E9,stroke:#E67E22,stroke-width:2px
+    style S3 fill:#FDF2E9,stroke:#E67E22,stroke-width:2px
+    style S4 fill:#EAFAF1,stroke:#1E8449,stroke-width:2px
+    style S5 fill:#F4ECF7,stroke:#6C3483,stroke-width:2px
+    style S6 fill:#EBF5FB,stroke:#2471A3,stroke-width:2px
+
+    %% Tahap yang Masih Direncanakan (Dashed Border)
+    style S7 fill:#F8F9F9,stroke:#2E86C1,stroke-width:2px,stroke-dasharray: 5 5
+    style S8 fill:#F8F9F9,stroke:#1F618D,stroke-width:2px,stroke-dasharray: 5 5
+    style S8_TASKS fill:#EAF2F8,stroke:#2980B9,stroke-width:1px,stroke-dasharray: 3 3
+    style S8_IMB fill:#EAF2F8,stroke:#2980B9,stroke-width:1px,stroke-dasharray: 3 3
+    style S9 fill:#F2F4F4,stroke:#5D6D7E,stroke-width:2px,stroke-dasharray: 5 5
+    style S10 fill:#FEFDE8,stroke:#B7950B,stroke-width:2px,stroke-dasharray: 5 5
